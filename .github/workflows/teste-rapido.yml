@@ -1,0 +1,64 @@
+# =============================================================================
+# TESTE RÁPIDO — o GitHub Actions consegue baixar do YouTube?
+# Arquivo único, sem dependência de nenhum outro arquivo do projeto.
+# Coloque em: .github/workflows/teste-rapido.yml de um repositório qualquer.
+# =============================================================================
+
+name: "Teste rapido - yt-dlp no Actions"
+
+on:
+  workflow_dispatch:            # disparo manual pela aba Actions
+    inputs:
+      video_url:
+        description: "URL de um episódio LONGO (mais de 6 min) de um canal autorizado"
+        required: true
+
+jobs:
+  teste:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # A URL vira variável de ambiente (mais seguro que colar direto no comando)
+    env:
+      URL: ${{ inputs.video_url }}
+
+    steps:
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar ffmpeg e yt-dlp
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install yt-dlp
+
+      # Passo 1: só lê título e duração. Se o YouTube bloquear o IP do
+      # GitHub, o erro "Sign in to confirm you're not a bot" aparece aqui.
+      - name: "1) Ler informações do vídeo"
+        run: yt-dlp --print "Título: %(title)s | Duração: %(duration)s s" "$URL"
+
+      # Passo 2: baixa só a legenda automática em português, sem o vídeo
+      - name: "2) Baixar só a legenda"
+        run: |
+          yt-dlp --skip-download --write-auto-subs --write-subs \
+                 --sub-langs "pt.*" --sub-format vtt \
+                 -o "saida/legenda" "$URL"
+          ls -lh saida/
+
+      # Passo 3: baixa só o trecho de 5:00 a 6:00 do vídeo
+      - name: "3) Baixar trecho de 60 s"
+        run: |
+          yt-dlp --download-sections "*00:05:00-00:06:00" --force-keyframes-at-cuts \
+                 -f "bv*[height<=1080]+ba/b[height<=1080]/b" --merge-output-format mp4 \
+                 -o "saida/trecho.%(ext)s" "$URL"
+          ls -lh saida/
+
+      # Publica o que foi baixado para você conferir; o GitHub apaga em 1 dia
+      - name: Publicar resultado
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultado-teste-rapido
+          path: saida/
+          retention-days: 1
