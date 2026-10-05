@@ -7,20 +7,25 @@
 name: "Teste rapido - yt-dlp no Actions"
 
 on:
-  workflow_dispatch:            # disparo manual pela aba Actions
+  push:                         # roda sozinho a cada commit deste arquivo
+    paths:
+      - ".github/workflows/teste-rapido.yml"
+  workflow_dispatch:            # e também pelo botão "Run workflow"
     inputs:
       video_url:
         description: "URL de um episódio LONGO (mais de 6 min) de um canal autorizado"
-        required: true
+        required: false
+        default: "https://www.youtube.com/watch?v=GNuc81L_XM8"
 
 jobs:
   teste:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # A URL vira variável de ambiente (mais seguro que colar direto no comando)
+    # A URL vira variável de ambiente (mais seguro que colar direto no comando).
+    # No push não existe "inputs", então usa a URL fixa depois do ||.
     env:
-      URL: ${{ inputs.video_url }}
+      URL: ${{ inputs.video_url || 'https://www.youtube.com/watch?v=GNuc81L_XM8' }}
 
     steps:
       - name: Instalar Python
@@ -36,7 +41,8 @@ jobs:
       # Passo 1: só lê título e duração. Se o YouTube bloquear o IP do
       # GitHub, o erro "Sign in to confirm you're not a bot" aparece aqui.
       - name: "1) Ler informações do vídeo"
-        run: yt-dlp --print "Título: %(title)s | Duração: %(duration)s s" "$URL"
+        run: |
+          yt-dlp --print "Titulo: %(title)s | Duracao: %(duration)s s" "$URL"
 
       # Passo 2: baixa só a legenda automática em português, sem o vídeo
       - name: "2) Baixar só a legenda"
